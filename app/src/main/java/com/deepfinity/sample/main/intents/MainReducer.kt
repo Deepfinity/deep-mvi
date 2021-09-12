@@ -4,7 +4,7 @@ import com.deepfinity.mvi.base.ReduceResult
 import com.deepfinity.mvi.base.Reducer
 
 
-class MainReducer constructor(
+class MainReducer(
 ) : Reducer<MainViewState, MainEffect, MainSideEffect>() {
 
     override suspend fun reduce(
@@ -12,9 +12,12 @@ class MainReducer constructor(
         effect: MainEffect
     ): ReduceResult<MainViewState, MainSideEffect> =
         when (effect) {
-            is MainEffect.Clear -> TODO()
-            is MainEffect.FetchedData -> TODO()
-            MainEffect.Nothing -> TODO()
+            is MainEffect.ProcessedText -> {
+                state.copy(text = effect.text)
+            }
+            MainEffect.Nothing -> {
+                state
+            }
         }.let { ReduceResult(it) }
 }
 

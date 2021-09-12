@@ -4,5 +4,6 @@ import com.deepfinity.mvi.base.State
 import com.deepfinity.sample.main.models.MainModel
 
 data class MainViewState(
-    val someState: MainModel? = null
+    val text: String? = null,
+    val isClearable: Boolean
 ) : State

@@ -1,42 +1,37 @@
 package com.deepfinity.mvi.viewmodel
 
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.deepfinity.mvi.base.*
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.orbitmvi.orbit.ContainerHost
 import org.orbitmvi.orbit.syntax.simple.intent
 import org.orbitmvi.orbit.syntax.simple.postSideEffect
 import org.orbitmvi.orbit.syntax.simple.reduce
-import org.orbitmvi.orbit.viewmodel.container
 
 abstract class DeepStreamViewModel<STATE : State, INTENT : Intent, EFFECT : Effect, SIDE_EFFECT : SideEffect>(
-    val reducer: Reducer<STATE, EFFECT, SIDE_EFFECT>
-) : ContainerHost<STATE, SIDE_EFFECT>, ViewModel() {
+    reducer: Reducer<STATE, EFFECT, SIDE_EFFECT>,
+    dispatcher: CoroutineDispatcher = Dispatchers.IO
+) : BaseViewModel<STATE, EFFECT, SIDE_EFFECT>(reducer, dispatcher) {
 
-    val state: STATE get() = container.stateFlow.value
+    protected fun initialIntent(): INTENT? = null
 
-    override val container = container<STATE, SIDE_EFFECT>(this.initialState())
-    abstract fun initialState(): STATE
-    abstract fun initialIntent(): INTENT
+    protected abstract suspend fun handleIntent(intent: INTENT): Flow<EFFECT>
 
-    abstract suspend fun handleIntent(intent: INTENT): Flow<EFFECT>
-
-    fun dispatchInitialIntent() = dispatch(initialIntent())
+    fun dispatchInitialIntent() = initialIntent()?.also { dispatch(it) }
 
     fun dispatch(
-        intent: INTENT,
+        intent: INTENT
     ) = intent {
         viewModelScope.launch {
-            withContext(Dispatchers.IO) {
+            withContext(dispatcher) {
                 handleIntent(intent)
                     .map { effect -> reducer.reduce(this@DeepStreamViewModel.state, effect) }
-                    .flowOn(Dispatchers.IO)
+                    .flowOn(dispatcher)
                     .catch { err ->
-                        println(err)
+                        reporter(err)
                     }
                     .collect { result ->
                         try {
@@ -45,7 +40,7 @@ abstract class DeepStreamViewModel<STATE : State, INTENT : Intent, EFFECT : Effe
                                 result.state
                             }
                         } catch (err: Exception) {
-                            println(err)
+                            reporter(err)
                         }
                     }
             }
